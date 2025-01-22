@@ -128,6 +128,67 @@
         Console.WriteLine("  +------------------------+");
         Console.WriteLine("    a b c d e f g h");
     }
+    public void ClearAllPieces()
+    {
+        WhitePawns = new Bitboard();
+        WhiteKnights = new Bitboard();
+        WhiteBishops = new Bitboard();
+        WhiteRooks = new Bitboard();
+        WhiteQueens = new Bitboard();
+        WhiteKing = new Bitboard();
+
+        BlackPawns = new Bitboard();
+        BlackKnights = new Bitboard();
+        BlackBishops = new Bitboard();
+        BlackRooks = new Bitboard();
+        BlackQueens = new Bitboard();
+        BlackKing = new Bitboard();
+    }
+    public void SetPiece(char pieceChar, Square square)
+    {
+        switch (pieceChar)
+        {
+            case 'P':
+                WhitePawns.Set(square);
+                break;
+            case 'N':
+                WhiteKnights.Set(square);
+                break;
+            case 'B':
+                WhiteBishops.Set(square);
+                break;
+            case 'R':
+                WhiteRooks.Set(square);
+                break;
+            case 'Q':
+                WhiteQueens.Set(square);
+                break;
+            case 'K':
+                WhiteKing.Set(square);
+                break;
+            case 'p':
+                BlackPawns.Set(square);
+                break;
+            case 'n':
+                BlackKnights.Set(square);
+                break;
+            case 'b':
+                BlackBishops.Set(square);
+                break;
+            case 'r':
+                BlackRooks.Set(square);
+                break;
+            case 'q':
+                BlackQueens.Set(square);
+                break;
+            case 'k':
+                BlackKing.Set(square);
+                break;
+            default:
+                throw new ArgumentException($"Invalid piece character: {pieceChar}");
+        }
+    }
+
 
     // Get the character representation of the piece on a square
     private char GetPieceChar(Square square)
