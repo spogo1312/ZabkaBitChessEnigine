@@ -185,10 +185,62 @@ public class MoveGenerator
         return new List<Move>();
     }
 
+    // Generate all legal rook moves for a given color
     public List<Move> GenerateRookMoves(Board board, Color color)
     {
-        // Placeholder
-        return new List<Move>();
+        List<Move> moves = new List<Move>();
+
+        Bitboard rooks = color == Color.White ? board.WhiteRooks : board.BlackRooks;
+        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
+        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
+        Bitboard allPieces = board.AllPieces;
+
+        foreach (Square from in rooks.GetSquares())
+        {
+            // Iterate through each of the four directions: North, South, East, West
+            foreach (int direction in new int[] { 8, -8, 1, -1 })
+            {
+                int currentSq = (int)from;
+
+                while (true)
+                {
+                    currentSq += direction;
+
+                    // Check if the new square is within the board boundaries
+                    if (currentSq < 0 || currentSq >= 64)
+                        break;
+
+                    if (direction == 1 && currentSq % 8 == 0)
+                        break; // Moving East from H-file wraps to A-file
+                    if (direction == -1 && (currentSq + 1) % 8 == 0)
+                        break; // Moving West from A-file wraps to H-file
+
+                    Square to = (Square)currentSq;
+
+                    if (ownPieces.IsSet(to))
+                    {
+                        // Blocked by own piece; cannot move further in this direction
+                        break;
+                    }
+
+                    bool isCapture = enemyPieces.IsSet(to);
+                    moves.Add(new Move
+                    {
+                        From = from,
+                        To = to,
+                        IsCapture = isCapture
+                    });
+
+                    if (isCapture)
+                    {
+                        // Cannot move beyond a capture
+                        break;
+                    }
+                }
+            }
+        }
+
+        return moves;
     }
 
     public List<Move> GenerateQueenMoves(Board board, Color color)
