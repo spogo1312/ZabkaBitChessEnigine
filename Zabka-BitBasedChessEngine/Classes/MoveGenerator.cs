@@ -53,6 +53,7 @@ public class MoveGenerator
         foreach (Square from in pawns.GetSquares())
         {
             int fromSq = (int)from;
+            int file = fromSq % 8; // 0 = 'a', 7 = 'h'
 
             // Single push
             int singlePushSq = color == Color.White ? fromSq + 8 : fromSq - 8;
@@ -87,9 +88,11 @@ public class MoveGenerator
                         });
                     }
 
-                    // Double push
-                    if ((color == Color.White && fromSq >= (int)Square.A2 && fromSq <= (int)Square.H2) ||
-                        (color == Color.Black && fromSq >= (int)Square.A7 && fromSq <= (int)Square.H7))
+                    // Double push using rank-based check
+                    int rank = color == Color.White ? fromSq / 8 : fromSq / 8;
+                    bool isInitialRank = color == Color.White ? rank == 1 : rank == 6;
+
+                    if (isInitialRank)
                     {
                         int doublePushSq = color == Color.White ? fromSq + 16 : fromSq - 16;
                         Square doubleTo = (Square)doublePushSq;
@@ -108,39 +111,152 @@ public class MoveGenerator
             }
 
             // Captures
-            int[] captureOffsets = color == Color.White ? new int[] { 7, 9 } : new int[] { -9, -7 };
-            foreach (int offset in captureOffsets)
+            // Left Capture
+            if (color == Color.White)
             {
-                int captureSq = fromSq + offset;
-                if (captureSq >= 0 && captureSq < 64)
+                if (file > 0) // Not on 'a' file
                 {
-                    Square to = (Square)captureSq;
-                    if (enemyPieces.IsSet(to))
+                    int captureSq = fromSq + 7;
+                    if (captureSq >= 0 && captureSq < 64)
                     {
-                        // Promotion
-                        if ((color == Color.White && to >= Square.A8 && to <= Square.H8) ||
-                            (color == Color.Black && to >= Square.A1 && to <= Square.H1))
+                        Square to = (Square)captureSq;
+                        if (enemyPieces.IsSet(to))
                         {
-                            foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                            // Promotion
+                            if (to >= Square.A8 && to <= Square.H8)
                             {
+                                foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                                {
+                                    moves.Add(new Move
+                                    {
+                                        From = from,
+                                        To = to,
+                                        Promotion = promo,
+                                        IsCapture = true
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                // Regular capture
                                 moves.Add(new Move
                                 {
                                     From = from,
                                     To = to,
-                                    Promotion = promo,
                                     IsCapture = true
                                 });
                             }
                         }
-                        else
+                    }
+                }
+
+                // Right Capture
+                if (file < 7) // Not on 'h' file
+                {
+                    int captureSq = fromSq + 9;
+                    if (captureSq >= 0 && captureSq < 64)
+                    {
+                        Square to = (Square)captureSq;
+                        if (enemyPieces.IsSet(to))
                         {
-                            // Regular capture
-                            moves.Add(new Move
+                            // Promotion
+                            if (to >= Square.A8 && to <= Square.H8)
                             {
-                                From = from,
-                                To = to,
-                                IsCapture = true
-                            });
+                                foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                                {
+                                    moves.Add(new Move
+                                    {
+                                        From = from,
+                                        To = to,
+                                        Promotion = promo,
+                                        IsCapture = true
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                // Regular capture
+                                moves.Add(new Move
+                                {
+                                    From = from,
+                                    To = to,
+                                    IsCapture = true
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            else // Black
+            {
+                if (file > 0) // Not on 'a' file
+                {
+                    int captureSq = fromSq - 9;
+                    if (captureSq >= 0 && captureSq < 64)
+                    {
+                        Square to = (Square)captureSq;
+                        if (enemyPieces.IsSet(to))
+                        {
+                            // Promotion
+                            if (to >= Square.A1 && to <= Square.H1)
+                            {
+                                foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                                {
+                                    moves.Add(new Move
+                                    {
+                                        From = from,
+                                        To = to,
+                                        Promotion = promo,
+                                        IsCapture = true
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                // Regular capture
+                                moves.Add(new Move
+                                {
+                                    From = from,
+                                    To = to,
+                                    IsCapture = true
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (file < 7) // Not on 'h' file
+                {
+                    int captureSq = fromSq - 7;
+                    if (captureSq >= 0 && captureSq < 64)
+                    {
+                        Square to = (Square)captureSq;
+                        if (enemyPieces.IsSet(to))
+                        {
+                            // Promotion
+                            if (to >= Square.A1 && to <= Square.H1)
+                            {
+                                foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                                {
+                                    moves.Add(new Move
+                                    {
+                                        From = from,
+                                        To = to,
+                                        Promotion = promo,
+                                        IsCapture = true
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                // Regular capture
+                                moves.Add(new Move
+                                {
+                                    From = from,
+                                    To = to,
+                                    IsCapture = true
+                                });
+                            }
                         }
                     }
                 }
@@ -153,7 +269,17 @@ public class MoveGenerator
                 int epSq = (int)epSquare;
                 if (color == Color.White)
                 {
-                    if (epSq == fromSq + 7 || epSq == fromSq + 9)
+                    if (epSq == fromSq + 7 && (file > 0))
+                    {
+                        moves.Add(new Move
+                        {
+                            From = from,
+                            To = epSquare,
+                            IsCapture = true,
+                            IsEnPassant = true
+                        });
+                    }
+                    if (epSq == fromSq + 9 && (file < 7))
                     {
                         moves.Add(new Move
                         {
@@ -166,7 +292,17 @@ public class MoveGenerator
                 }
                 else
                 {
-                    if (epSq == fromSq - 7 || epSq == fromSq - 9)
+                    if (epSq == fromSq - 7 && (file < 7))
+                    {
+                        moves.Add(new Move
+                        {
+                            From = from,
+                            To = epSquare,
+                            IsCapture = true,
+                            IsEnPassant = true
+                        });
+                    }
+                    if (epSq == fromSq - 9 && (file > 0))
                     {
                         moves.Add(new Move
                         {
