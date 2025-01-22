@@ -304,8 +304,13 @@ public class MoveGenerator
 
     public List<Move> GenerateQueenMoves(Board board, Color color)
     {
-        // Placeholder
-        return new List<Move>();
+        List<Move> moves = new List<Move>();
+
+        // Queens combine the movement of rooks and bishops
+        moves.AddRange(GenerateRookMoves(board, color));
+        moves.AddRange(GenerateBishopMoves(board, color));
+
+        return moves;
     }
 
     // Generate all legal moves for a given color
