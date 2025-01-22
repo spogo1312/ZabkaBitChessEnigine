@@ -179,10 +179,69 @@ public class MoveGenerator
         return moves;
     }
 
+    // Generate all legal bishop moves for a given color
     public List<Move> GenerateBishopMoves(Board board, Color color)
     {
-        // Placeholder
-        return new List<Move>();
+        List<Move> moves = new List<Move>();
+
+        Bitboard bishops = color == Color.White ? board.WhiteBishops : board.BlackBishops;
+        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
+        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
+        Bitboard allPieces = board.AllPieces;
+
+        // Direction offsets for bishops: NE(+9), NW(+7), SE(-7), SW(-9)
+        int[] directions = { 9, 7, -7, -9 };
+
+        foreach (Square from in bishops.GetSquares())
+        {
+            foreach (int direction in directions)
+            {
+                int currentSq = (int)from;
+
+                while (true)
+                {
+                    currentSq += direction;
+
+                    // Check if the new square is within the board boundaries
+                    if (currentSq < 0 || currentSq >= 64)
+                        break;
+
+                    // Prevent wrap-around for diagonal moves
+                    if (direction == 9 && (currentSq % 8 == 0))
+                        break; // Moving NE from H-file wraps to A-file
+                    if (direction == 7 && (currentSq % 8 == 0))
+                        break; // Moving NW from H-file wraps to A-file
+                    if (direction == -7 && ((currentSq + 1) % 8 == 0))
+                        break; // Moving SE from A-file wraps to H-file
+                    if (direction == -9 && ((currentSq + 1) % 8 == 0))
+                        break; // Moving SW from A-file wraps to H-file
+
+                    Square to = (Square)currentSq;
+
+                    if (ownPieces.IsSet(to))
+                    {
+                        // Blocked by own piece; cannot move further in this direction
+                        break;
+                    }
+
+                    bool isCapture = enemyPieces.IsSet(to);
+                    moves.Add(new Move
+                    {
+                        From = from,
+                        To = to,
+                        IsCapture = isCapture
+                    });
+
+                    if (isCapture)
+                    {
+                        // Cannot move beyond a capture
+                        break;
+                    }
+                }
+            }
+        }
+
+        return moves;
     }
 
     // Generate all legal rook moves for a given color
