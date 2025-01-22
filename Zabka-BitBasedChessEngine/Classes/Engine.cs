@@ -1,4 +1,5 @@
-﻿using System;
+﻿// File: Engine.cs
+using System;
 using System.Collections.Generic;
 
 public class Engine
@@ -9,37 +10,16 @@ public class Engine
     {
         moveGenerator = new MoveGenerator();
     }
-
-    // Make a move on the board
     public void MakeMove(Board board, Move move)
     {
-        // Remove piece from the 'from' square
-        RemovePiece(board, move.From);
-
-        // Handle captures
-        if (move.IsCapture)
-        {
-            RemovePiece(board, move.To);
-        }
-
-        // Handle promotions
-        if (move.Promotion != PieceType.None)
-        {
-            AddPiece(board, move.To, move.Promotion, board.SideToMove);
-        }
-        else
-        {
-            // Move the piece to the 'to' square
-            AddPiece(board, move.To, GetPieceType(board, move.From), board.SideToMove);
-        }
-
-        // Update pawn bitboards if necessary (e.g., en passant)
-        // TODO: Implement en passant and castling
-
-        // Switch side to move
-        board.SideToMove = board.SideToMove == Color.White ? Color.Black : Color.White;
+        board.MakeMove(move);
     }
 
+    // Add UnmakeMove method
+    public void UnmakeMove(Board board)
+    {
+        board.UnmakeMove();
+    }
     // Find the best move using a simple evaluation (e.g., random move)
     public Move FindBestMove(Board board, Color color)
     {
@@ -92,70 +72,22 @@ public class Engine
         return bitboard.Count() * value;
     }
 
-    private PieceType GetPieceType(Board board, Square square)
+    // Perft function
+    public ulong Perft(Board board, int depth)
     {
-        if (board.WhitePawns.IsSet(square)) return PieceType.Pawn;
-        if (board.WhiteKnights.IsSet(square)) return PieceType.Knight;
-        if (board.WhiteBishops.IsSet(square)) return PieceType.Bishop;
-        if (board.WhiteRooks.IsSet(square)) return PieceType.Rook;
-        if (board.WhiteQueens.IsSet(square)) return PieceType.Queen;
-        if (board.WhiteKing.IsSet(square)) return PieceType.King;
+        if (depth == 0)
+            return 1;
 
-        if (board.BlackPawns.IsSet(square)) return PieceType.Pawn;
-        if (board.BlackKnights.IsSet(square)) return PieceType.Knight;
-        if (board.BlackBishops.IsSet(square)) return PieceType.Bishop;
-        if (board.BlackRooks.IsSet(square)) return PieceType.Rook;
-        if (board.BlackQueens.IsSet(square)) return PieceType.Queen;
-        if (board.BlackKing.IsSet(square)) return PieceType.King;
+        ulong nodes = 0;
+        List<Move> moves = moveGenerator.GenerateAllMoves(board, board.SideToMove);
 
-        return PieceType.None;
-    }
-
-    private void AddPiece(Board board, Square square, PieceType pieceType, Color color)
-    {
-        switch (pieceType)
+        foreach (var move in moves)
         {
-            case PieceType.Pawn:
-                if (color == Color.White) board.WhitePawns.Set(square);
-                else board.BlackPawns.Set(square);
-                break;
-            case PieceType.Knight:
-                if (color == Color.White) board.WhiteKnights.Set(square);
-                else board.BlackKnights.Set(square);
-                break;
-            case PieceType.Bishop:
-                if (color == Color.White) board.WhiteBishops.Set(square);
-                else board.BlackBishops.Set(square);
-                break;
-            case PieceType.Rook:
-                if (color == Color.White) board.WhiteRooks.Set(square);
-                else board.BlackRooks.Set(square);
-                break;
-            case PieceType.Queen:
-                if (color == Color.White) board.WhiteQueens.Set(square);
-                else board.BlackQueens.Set(square);
-                break;
-            case PieceType.King:
-                if (color == Color.White) board.WhiteKing.Set(square);
-                else board.BlackKing.Set(square);
-                break;
+            board.MakeMove(move);
+            nodes += Perft(board, depth - 1);
+            board.UnmakeMove();
         }
-    }
 
-    private void RemovePiece(Board board, Square square)
-    {
-        if (board.WhitePawns.IsSet(square)) board.WhitePawns.Clear(square);
-        if (board.WhiteKnights.IsSet(square)) board.WhiteKnights.Clear(square);
-        if (board.WhiteBishops.IsSet(square)) board.WhiteBishops.Clear(square);
-        if (board.WhiteRooks.IsSet(square)) board.WhiteRooks.Clear(square);
-        if (board.WhiteQueens.IsSet(square)) board.WhiteQueens.Clear(square);
-        if (board.WhiteKing.IsSet(square)) board.WhiteKing.Clear(square);
-
-        if (board.BlackPawns.IsSet(square)) board.BlackPawns.Clear(square);
-        if (board.BlackKnights.IsSet(square)) board.BlackKnights.Clear(square);
-        if (board.BlackBishops.IsSet(square)) board.BlackBishops.Clear(square);
-        if (board.BlackRooks.IsSet(square)) board.BlackRooks.Clear(square);
-        if (board.BlackQueens.IsSet(square)) board.BlackQueens.Clear(square);
-        if (board.BlackKing.IsSet(square)) board.BlackKing.Clear(square);
+        return nodes;
     }
 }

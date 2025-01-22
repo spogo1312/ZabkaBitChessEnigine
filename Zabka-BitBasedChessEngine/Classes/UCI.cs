@@ -1,4 +1,4 @@
-﻿// File: Classes/UCIHandler.cs
+﻿// File: UCIHandler.cs
 using System;
 using System.Collections.Generic;
 
@@ -7,6 +7,7 @@ public class UCIHandler
     private Board board;
     private MoveGenerator moveGenerator;
     private Engine engine;
+    private bool isDebugMode = false; // Debug mode flag
 
     public UCIHandler(Board board, MoveGenerator moveGenerator, Engine engine)
     {
@@ -20,39 +21,138 @@ public class UCIHandler
         string input;
         while ((input = Console.ReadLine()) != null)
         {
-            if (input == "uci")
+            try
             {
-                Console.WriteLine("id name BitboardChessEngine");
-                Console.WriteLine("id author YourName");
-                Console.WriteLine("uciok");
+                if (input == "uci")
+                {
+                    Console.WriteLine("id name BitboardChessEngine");
+                    Console.WriteLine("id author YourName");
+                    Console.WriteLine("uciok");
+                }
+                else if (input.StartsWith("isready"))
+                {
+                    Console.WriteLine("readyok");
+                }
+                else if (input.StartsWith("ucinewgame"))
+                {
+                    board.Initialize();
+                    if (isDebugMode)
+                        Console.WriteLine("New game initialized.");
+                }
+                else if (input.StartsWith("position"))
+                {
+                    ParsePosition(input);
+                    if (isDebugMode)
+                    {
+                        Console.WriteLine("Position set:");
+                        board.Display();
+                    }
+                }
+                else if (input.StartsWith("go"))
+                {
+                    ParseGo(input);
+                }
+                else if (input.StartsWith("quit"))
+                {
+                    break;
+                }
+                else if (input.StartsWith("display"))
+                {
+                    // Handle the display command
+                    board.Display();
+                }
+                else if (input.StartsWith("debug on"))
+                {
+                    isDebugMode = true;
+                    Console.WriteLine("Debug mode enabled.");
+                }
+                else if (input.StartsWith("debug off"))
+                {
+                    isDebugMode = false;
+                    Console.WriteLine("Debug mode disabled.");
+                }
+                else if (input.StartsWith("perft"))
+                {
+                    // Handle the perft command
+                    HandlePerftCommand(input);
+                }
+                else if (input.StartsWith("divide"))
+                {
+                    // Handle the divide command
+                    HandleDivideCommand(input);
+                }
+                else
+                {
+                    // Handle unrecognized commands
+                    if (isDebugMode)
+                    {
+                        Console.WriteLine($"Unrecognized command: {input}");
+                    }
+                    // Alternatively, silently ignore
+                }
             }
-            else if (input.StartsWith("isready"))
+            catch (Exception ex)
             {
-                Console.WriteLine("readyok");
+                if (isDebugMode)
+                {
+                    Console.WriteLine($"Error: {ex.Message}");
+                }
+                // Optionally, handle or log the error
             }
-            else if (input.StartsWith("ucinewgame"))
-            {
-                board.Initialize();
-            }
-            else if (input.StartsWith("position"))
-            {
-                ParsePosition(input);
-            }
-            else if (input.StartsWith("go"))
-            {
-                ParseGo(input);
-            }
-            else if (input.StartsWith("quit"))
-            {
-                break;
-            }
-            else if (input.StartsWith("display"))
-            {
-                // Handle the display command
-                board.Display();
-            }
-            // Handle other UCI commands as needed
         }
+    }
+
+    private void HandlePerftCommand(string input)
+    {
+        // Example: perft 3
+        string[] parts = input.Split(' ');
+        if (parts.Length != 2 || !int.TryParse(parts[1], out int depth))
+        {
+            Console.WriteLine("Usage: perft <depth>");
+            return;
+        }
+
+        Console.WriteLine($"Running Perft({depth})...");
+        ulong nodes = engine.Perft(board, depth);
+        Console.WriteLine($"Perft({depth}) = {nodes}");
+    }
+
+    private void HandleDivideCommand(string input)
+    {
+        // Example: divide 3
+        string[] parts = input.Split(' ');
+        if (parts.Length != 2 || !int.TryParse(parts[1], out int depth))
+        {
+            Console.WriteLine("Usage: divide <depth>");
+            return;
+        }
+
+        Console.WriteLine($"Running Divide({depth})...");
+        Divide(board, depth);
+    }
+
+    private void Divide(Board board, int depth)
+    {
+        if (depth < 1)
+        {
+            Console.WriteLine("Depth must be at least 1.");
+            return;
+        }
+
+        List<Move> moves = moveGenerator.GenerateAllMoves(board, board.SideToMove);
+        ulong totalNodes = 0;
+
+        foreach (var move in moves)
+        {
+            board.MakeMove(move);
+            ulong nodes = engine.Perft(board, depth - 1);
+            board.UnmakeMove();
+
+            Console.WriteLine($"{move.ToString()} {nodes}");
+            totalNodes += nodes;
+        }
+
+        Console.WriteLine($"Total nodes: {totalNodes}");
     }
 
     private void ParsePosition(string input)
@@ -179,8 +279,24 @@ public class UCIHandler
             board.EnPassantTarget = null;
         }
 
-        // Optionally, parse halfmove clock and fullmove number
-        // These can be stored in the Board class if needed
+        // Parse halfmove clock and fullmove number
+        if (int.TryParse(halfmoveClock, out int halfmoves))
+        {
+            board.HalfmoveClock = halfmoves;
+        }
+        else
+        {
+            throw new ArgumentException("Invalid FEN string: Halfmove clock is not an integer.");
+        }
+
+        if (int.TryParse(fullmoveNumber, out int fullmoves))
+        {
+            board.FullmoveNumber = fullmoves;
+        }
+        else
+        {
+            throw new ArgumentException("Invalid FEN string: Fullmove number is not an integer.");
+        }
     }
 
     private void ParseGo(string input)
@@ -216,15 +332,44 @@ public class UCIHandler
 
         // Determine if it's a capture by checking if the 'to' square is occupied by an enemy piece
         bool isCapture = false;
-        Bitboard enemyPieces = board.SideToMove == Color.White ? board.BlackPieces : board.WhitePieces;
-        isCapture = enemyPieces.IsSet(to);
+        if (board.SideToMove == Color.White)
+        {
+            isCapture = board.BlackPieces.IsSet(to);
+        }
+        else
+        {
+            isCapture = board.WhitePieces.IsSet(to);
+        }
+
+        // Handle en passant capture
+        bool isEnPassant = false;
+        if (board.EnPassantTarget.HasValue && to == board.EnPassantTarget.Value)
+        {
+            isCapture = true;
+            isEnPassant = true;
+        }
+
+        // Determine if it's a castling move
+        bool isCastling = false;
+        if (board.SideToMove == Color.White)
+        {
+            if (from == Square.E1 && to == Square.G1) isCastling = true; // Kingside
+            if (from == Square.E1 && to == Square.C1) isCastling = true; // Queenside
+        }
+        else
+        {
+            if (from == Square.E8 && to == Square.G8) isCastling = true; // Kingside
+            if (from == Square.E8 && to == Square.C8) isCastling = true; // Queenside
+        }
 
         return new Move
         {
             From = from,
             To = to,
             Promotion = promotion,
-            IsCapture = isCapture
+            IsCapture = isCapture,
+            IsEnPassant = isEnPassant,
+            IsCastling = isCastling
         };
     }
 

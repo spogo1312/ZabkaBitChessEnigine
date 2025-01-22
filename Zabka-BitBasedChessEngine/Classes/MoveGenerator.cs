@@ -1,229 +1,360 @@
-﻿// File: Classes/MoveGenerator.cs
+﻿// File: MoveGenerator.cs
 using System;
 using System.Collections.Generic;
 
 public class MoveGenerator
 {
-    // Generate all legal knight moves for a given color
-    public List<Move> GenerateKnightMoves(Board board, Color color)
+    // Directions for sliding pieces
+    private static readonly int[] KnightMoves = { -17, -15, -10, -6, 6, 10, 15, 17 };
+    private static readonly int[] KingMoves = { -9, -8, -7, -1, 1, 7, 8, 9 };
+    private static readonly int[] BishopDirections = { -9, -7, 7, 9 };
+    private static readonly int[] RookDirections = { -8, -1, 1, 8 };
+    private static readonly int[] QueenDirections = { -9, -8, -7, -1, 1, 7, 8, 9 };
+
+    // Generate all legal moves for a given color
+    public List<Move> GenerateAllMoves(Board board, Color color)
     {
         List<Move> moves = new List<Move>();
 
+        // Generate pawn moves
+        moves.AddRange(GeneratePawnMoves(board, color));
+
+        // Generate knight moves
+        moves.AddRange(GenerateKnightMoves(board, color));
+
+        // Generate bishop moves
+        moves.AddRange(GenerateSlidingMoves(board, color, BishopDirections, PieceType.Bishop));
+
+        // Generate rook moves
+        moves.AddRange(GenerateSlidingMoves(board, color, RookDirections, PieceType.Rook));
+
+        // Generate queen moves
+        moves.AddRange(GenerateSlidingMoves(board, color, QueenDirections, PieceType.Queen));
+
+        // Generate king moves
+        moves.AddRange(GenerateKingMoves(board, color));
+        // Within MoveGenerator.GenerateAllMoves
+        Console.WriteLine($"Generating moves for {color}:");
+        foreach (var move in moves)
+        {
+            Console.WriteLine($"Move: {move.From} to {move.To}, Capture: {move.IsCapture}, Promotion: {move.Promotion}, Castling: {move.IsCastling}, EnPassant: {move.IsEnPassant}");
+        }
+
+        return moves;
+    }
+
+    // Generate pawn moves
+    private List<Move> GeneratePawnMoves(Board board, Color color)
+    {
+        List<Move> moves = new List<Move>();
+        Bitboard pawns = color == Color.White ? board.WhitePawns : board.BlackPawns;
+        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
+        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
+
+        foreach (Square from in pawns.GetSquares())
+        {
+            int fromSq = (int)from;
+
+            // Single push
+            int singlePushSq = color == Color.White ? fromSq + 8 : fromSq - 8;
+            if (singlePushSq >= 0 && singlePushSq < 64)
+            {
+                Square to = (Square)singlePushSq;
+                if (!board.AllPieces.IsSet(to))
+                {
+                    // Promotion
+                    if ((color == Color.White && to >= Square.A8 && to <= Square.H8) ||
+                        (color == Color.Black && to >= Square.A1 && to <= Square.H1))
+                    {
+                        foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                        {
+                            moves.Add(new Move
+                            {
+                                From = from,
+                                To = to,
+                                Promotion = promo,
+                                IsCapture = false
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // Regular push
+                        moves.Add(new Move
+                        {
+                            From = from,
+                            To = to,
+                            IsCapture = false
+                        });
+                    }
+
+                    // Double push
+                    if ((color == Color.White && fromSq >= (int)Square.A2 && fromSq <= (int)Square.H2) ||
+                        (color == Color.Black && fromSq >= (int)Square.A7 && fromSq <= (int)Square.H7))
+                    {
+                        int doublePushSq = color == Color.White ? fromSq + 16 : fromSq - 16;
+                        Square doubleTo = (Square)doublePushSq;
+                        if (!board.AllPieces.IsSet(doubleTo))
+                        {
+                            Move doublePush = new Move
+                            {
+                                From = from,
+                                To = doubleTo,
+                                IsCapture = false
+                            };
+                            moves.Add(doublePush);
+                        }
+                    }
+                }
+            }
+
+            // Captures
+            int[] captureOffsets = color == Color.White ? new int[] { 7, 9 } : new int[] { -9, -7 };
+            foreach (int offset in captureOffsets)
+            {
+                int captureSq = fromSq + offset;
+                if (captureSq >= 0 && captureSq < 64)
+                {
+                    Square to = (Square)captureSq;
+                    if (enemyPieces.IsSet(to))
+                    {
+                        // Promotion
+                        if ((color == Color.White && to >= Square.A8 && to <= Square.H8) ||
+                            (color == Color.Black && to >= Square.A1 && to <= Square.H1))
+                        {
+                            foreach (PieceType promo in new PieceType[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                            {
+                                moves.Add(new Move
+                                {
+                                    From = from,
+                                    To = to,
+                                    Promotion = promo,
+                                    IsCapture = true
+                                });
+                            }
+                        }
+                        else
+                        {
+                            // Regular capture
+                            moves.Add(new Move
+                            {
+                                From = from,
+                                To = to,
+                                IsCapture = true
+                            });
+                        }
+                    }
+                }
+            }
+
+            // En Passant
+            if (board.EnPassantTarget.HasValue)
+            {
+                Square epSquare = board.EnPassantTarget.Value;
+                int epSq = (int)epSquare;
+                if (color == Color.White)
+                {
+                    if (epSq == fromSq + 7 || epSq == fromSq + 9)
+                    {
+                        moves.Add(new Move
+                        {
+                            From = from,
+                            To = epSquare,
+                            IsCapture = true,
+                            IsEnPassant = true
+                        });
+                    }
+                }
+                else
+                {
+                    if (epSq == fromSq - 7 || epSq == fromSq - 9)
+                    {
+                        moves.Add(new Move
+                        {
+                            From = from,
+                            To = epSquare,
+                            IsCapture = true,
+                            IsEnPassant = true
+                        });
+                    }
+                }
+            }
+        }
+
+        return moves;
+    }
+
+    // Generate knight moves
+    private List<Move> GenerateKnightMoves(Board board, Color color)
+    {
+        List<Move> moves = new List<Move>();
         Bitboard knights = color == Color.White ? board.WhiteKnights : board.BlackKnights;
         Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
         Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
 
         foreach (Square from in knights.GetSquares())
         {
-            ulong attacks = AttackTables.KnightAttacks[(int)from];
-            ulong targets = attacks & ~ownPieces.Bits; // Exclude squares occupied by own pieces
-
-            foreach (Square to in SquareFromBits(targets))
+            int fromSq = (int)from;
+            foreach (int offset in KnightMoves)
             {
-                bool isCapture = enemyPieces.IsSet(to);
-                moves.Add(new Move
+                int toSq = fromSq + offset;
+                if (toSq < 0 || toSq >= 64)
+                    continue;
+
+                // Prevent wrap-around
+                if (Math.Abs((fromSq % 8) - (toSq % 8)) > 2)
+                    continue;
+
+                Square to = (Square)toSq;
+                if (!ownPieces.IsSet(to))
                 {
-                    From = from,
-                    To = to,
-                    IsCapture = isCapture
-                });
-            }
-        }
-
-        return moves;
-    }
-
-    // Generate all legal king moves for a given color
-    public List<Move> GenerateKingMoves(Board board, Color color)
-    {
-        List<Move> moves = new List<Move>();
-
-        Bitboard king = color == Color.White ? board.WhiteKing : board.BlackKing;
-        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
-        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
-
-        // There should only be one king
-        Square from = Square.A1; // Default initialization
-        foreach (Square sq in king.GetSquares())
-        {
-            from = sq;
-            break;
-        }
-
-        ulong attacks = AttackTables.KingAttacks[(int)from];
-        ulong targets = attacks & ~ownPieces.Bits; // Exclude squares occupied by own pieces
-
-        foreach (Square to in SquareFromBits(targets))
-        {
-            bool isCapture = enemyPieces.IsSet(to);
-            moves.Add(new Move
-            {
-                From = from,
-                To = to,
-                IsCapture = isCapture
-            });
-        }
-
-        // TODO: Implement Castling
-
-        return moves;
-    }
-
-    // Generate all legal pawn moves
-    public List<Move> GeneratePawnMoves(Board board, Color color)
-    {
-        List<Move> moves = new List<Move>();
-
-        Bitboard pawns = color == Color.White ? board.WhitePawns : board.BlackPawns;
-        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
-        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
-        Bitboard emptySquares = new Bitboard(~board.AllPieces.Bits);
-
-        int direction = color == Color.White ? 8 : -8;
-        int startRank = color == Color.White ? 1 : 6;
-        int promotionRank = color == Color.White ? 6 : 1;
-
-        foreach (Square from in pawns.GetSquares())
-        {
-            int fromRank = (int)from / 8;
-            int fromFile = (int)from % 8;
-
-            // Single move forward
-            int toSq = (int)from + direction;
-            if (toSq >= 0 && toSq < 64 && !emptySquares.IsSet((Square)toSq))
-            {
-                // Square is not empty
-            }
-            else if (toSq >= 0 && toSq < 64 && emptySquares.IsSet((Square)toSq))
-            {
-                // Promotion
-                int toRank = toSq / 8;
-                if (toRank == promotionRank)
-                {
-                    moves.AddRange(new List<Move>
+                    bool isCapture = enemyPieces.IsSet(to);
+                    moves.Add(new Move
                     {
-                        new Move { From = from, To = (Square)toSq, Promotion = PieceType.Queen, IsCapture = false },
-                        new Move { From = from, To = (Square)toSq, Promotion = PieceType.Rook, IsCapture = false },
-                        new Move { From = from, To = (Square)toSq, Promotion = PieceType.Bishop, IsCapture = false },
-                        new Move { From = from, To = (Square)toSq, Promotion = PieceType.Knight, IsCapture = false }
+                        From = from,
+                        To = to,
+                        IsCapture = isCapture
                     });
                 }
-                else
-                {
-                    moves.Add(new Move { From = from, To = (Square)toSq, IsCapture = false });
-                }
-
-                // Double move forward from starting rank
-                if (fromRank == startRank)
-                {
-                    int doubleToSq = toSq + direction;
-                    if (doubleToSq >= 0 && doubleToSq < 64 && emptySquares.IsSet((Square)doubleToSq))
-                    {
-                        moves.Add(new Move { From = from, To = (Square)doubleToSq, IsCapture = false });
-                    }
-                }
             }
-
-            // Captures
-            // Capture to the left
-            if (fromFile > 0)
-            {
-                int captureLeftSq = (int)from + direction - 1;
-                if (captureLeftSq >= 0 && captureLeftSq < 64 && enemyPieces.IsSet((Square)captureLeftSq))
-                {
-                    int captureRank = captureLeftSq / 8;
-                    if (captureRank == promotionRank)
-                    {
-                        moves.AddRange(new List<Move>
-                        {
-                            new Move { From = from, To = (Square)captureLeftSq, Promotion = PieceType.Queen, IsCapture = true },
-                            new Move { From = from, To = (Square)captureLeftSq, Promotion = PieceType.Rook, IsCapture = true },
-                            new Move { From = from, To = (Square)captureLeftSq, Promotion = PieceType.Bishop, IsCapture = true },
-                            new Move { From = from, To = (Square)captureLeftSq, Promotion = PieceType.Knight, IsCapture = true }
-                        });
-                    }
-                    else
-                    {
-                        moves.Add(new Move { From = from, To = (Square)captureLeftSq, IsCapture = true });
-                    }
-                }
-            }
-
-            // Capture to the right
-            if (fromFile < 7)
-            {
-                int captureRightSq = (int)from + direction + 1;
-                if (captureRightSq >= 0 && captureRightSq < 64 && enemyPieces.IsSet((Square)captureRightSq))
-                {
-                    int captureRank = captureRightSq / 8;
-                    if (captureRank == promotionRank)
-                    {
-                        moves.AddRange(new List<Move>
-                        {
-                            new Move { From = from, To = (Square)captureRightSq, Promotion = PieceType.Queen, IsCapture = true },
-                            new Move { From = from, To = (Square)captureRightSq, Promotion = PieceType.Rook, IsCapture = true },
-                            new Move { From = from, To = (Square)captureRightSq, Promotion = PieceType.Bishop, IsCapture = true },
-                            new Move { From = from, To = (Square)captureRightSq, Promotion = PieceType.Knight, IsCapture = true }
-                        });
-                    }
-                    else
-                    {
-                        moves.Add(new Move { From = from, To = (Square)captureRightSq, IsCapture = true });
-                    }
-                }
-            }
-
-            // TODO: En Passant
         }
 
         return moves;
     }
 
-    // Generate all legal bishop moves for a given color
-    public List<Move> GenerateBishopMoves(Board board, Color color)
+    // Generate king moves, including castling
+    private List<Move> GenerateKingMoves(Board board, Color color)
     {
         List<Move> moves = new List<Move>();
-
-        Bitboard bishops = color == Color.White ? board.WhiteBishops : board.BlackBishops;
+        Bitboard kings = color == Color.White ? board.WhiteKing : board.BlackKing;
         Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
         Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
-        Bitboard allPieces = board.AllPieces;
 
-        // Direction offsets for bishops: NE(+9), NW(+7), SE(-7), SW(-9)
-        int[] directions = { 9, 7, -7, -9 };
-
-        foreach (Square from in bishops.GetSquares())
+        foreach (Square from in kings.GetSquares())
         {
+            int fromSq = (int)from;
+            foreach (int offset in KingMoves)
+            {
+                int toSq = fromSq + offset;
+                if (toSq < 0 || toSq >= 64)
+                    continue;
+
+                // Prevent wrap-around
+                if (Math.Abs((fromSq % 8) - (toSq % 8)) > 1)
+                    continue;
+
+                Square to = (Square)toSq;
+                if (!ownPieces.IsSet(to))
+                {
+                    bool isCapture = enemyPieces.IsSet(to);
+                    moves.Add(new Move
+                    {
+                        From = from,
+                        To = to,
+                        IsCapture = isCapture
+                    });
+                }
+            }
+
+            // Castling
+            if (color == Color.White && from == Square.E1)
+            {
+                // Kingside castling
+                if (board.WhiteCanCastleKingSide &&
+                    !board.AllPieces.IsSet(Square.F1) &&
+                    !board.AllPieces.IsSet(Square.G1) &&
+                    !IsSquareAttacked(board, Square.E1, Color.Black) &&
+                    !IsSquareAttacked(board, Square.F1, Color.Black) &&
+                    !IsSquareAttacked(board, Square.G1, Color.Black))
+                {
+                    moves.Add(new Move
+                    {
+                        From = Square.E1,
+                        To = Square.G1,
+                        IsCastling = true
+                    });
+                }
+
+                // Queenside castling
+                if (board.WhiteCanCastleQueenSide &&
+                    !board.AllPieces.IsSet(Square.D1) &&
+                    !board.AllPieces.IsSet(Square.C1) &&
+                    !board.AllPieces.IsSet(Square.B1) &&
+                    !IsSquareAttacked(board, Square.E1, Color.Black) &&
+                    !IsSquareAttacked(board, Square.D1, Color.Black) &&
+                    !IsSquareAttacked(board, Square.C1, Color.Black))
+                {
+                    moves.Add(new Move
+                    {
+                        From = Square.E1,
+                        To = Square.C1,
+                        IsCastling = true
+                    });
+                }
+            }
+            else if (color == Color.Black && from == Square.E8)
+            {
+                // Kingside castling
+                if (board.BlackCanCastleKingSide &&
+                    !board.AllPieces.IsSet(Square.F8) &&
+                    !board.AllPieces.IsSet(Square.G8) &&
+                    !IsSquareAttacked(board, Square.E8, Color.White) &&
+                    !IsSquareAttacked(board, Square.F8, Color.White) &&
+                    !IsSquareAttacked(board, Square.G8, Color.White))
+                {
+                    moves.Add(new Move
+                    {
+                        From = Square.E8,
+                        To = Square.G8,
+                        IsCastling = true
+                    });
+                }
+
+                // Queenside castling
+                if (board.BlackCanCastleQueenSide &&
+                    !board.AllPieces.IsSet(Square.D8) &&
+                    !board.AllPieces.IsSet(Square.C8) &&
+                    !board.AllPieces.IsSet(Square.B8) &&
+                    !IsSquareAttacked(board, Square.E8, Color.White) &&
+                    !IsSquareAttacked(board, Square.D8, Color.White) &&
+                    !IsSquareAttacked(board, Square.C8, Color.White))
+                {
+                    moves.Add(new Move
+                    {
+                        From = Square.E8,
+                        To = Square.C8,
+                        IsCastling = true
+                    });
+                }
+            }
+        }
+
+        return moves;
+    }
+
+    // Generate sliding piece moves (Bishop, Rook, Queen)
+    private List<Move> GenerateSlidingMoves(Board board, Color color, int[] directions, PieceType pieceType)
+    {
+        List<Move> moves = new List<Move>();
+        Bitboard slidingPieces = GetSlidingPieces(board, color, pieceType);
+        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
+        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
+
+        foreach (Square from in slidingPieces.GetSquares())
+        {
+            int fromSq = (int)from;
             foreach (int direction in directions)
             {
-                int currentSq = (int)from;
-
-                while (true)
+                int toSq = fromSq + direction;
+                while (toSq >= 0 && toSq < 64)
                 {
-                    currentSq += direction;
-
-                    // Check if the new square is within the board boundaries
-                    if (currentSq < 0 || currentSq >= 64)
+                    // Prevent wrap-around for horizontal moves using toSq
+                    if (IsInvalidSlidingMove(toSq, direction))
                         break;
 
-                    // Prevent wrap-around for diagonal moves
-                    if (direction == 9 && (currentSq % 8 == 0))
-                        break; // Moving NE from H-file wraps to A-file
-                    if (direction == 7 && (currentSq % 8 == 0))
-                        break; // Moving NW from H-file wraps to A-file
-                    if (direction == -7 && ((currentSq + 1) % 8 == 0))
-                        break; // Moving SE from A-file wraps to H-file
-                    if (direction == -9 && ((currentSq + 1) % 8 == 0))
-                        break; // Moving SW from A-file wraps to H-file
-
-                    Square to = (Square)currentSq;
-
+                    Square to = (Square)toSq;
                     if (ownPieces.IsSet(to))
-                    {
-                        // Blocked by own piece; cannot move further in this direction
                         break;
-                    }
-
                     bool isCapture = enemyPieces.IsSet(to);
                     moves.Add(new Move
                     {
@@ -233,10 +364,9 @@ public class MoveGenerator
                     });
 
                     if (isCapture)
-                    {
-                        // Cannot move beyond a capture
                         break;
-                    }
+
+                    toSq += direction;
                 }
             }
         }
@@ -244,96 +374,145 @@ public class MoveGenerator
         return moves;
     }
 
-    // Generate all legal rook moves for a given color
-    public List<Move> GenerateRookMoves(Board board, Color color)
+    // Helper to determine if a sliding move wraps around the board horizontally
+    private bool IsInvalidSlidingMove(int toSq, int direction)
     {
-        List<Move> moves = new List<Move>();
-
-        Bitboard rooks = color == Color.White ? board.WhiteRooks : board.BlackRooks;
-        Bitboard ownPieces = color == Color.White ? board.WhitePieces : board.BlackPieces;
-        Bitboard enemyPieces = color == Color.White ? board.BlackPieces : board.WhitePieces;
-        Bitboard allPieces = board.AllPieces;
-
-        foreach (Square from in rooks.GetSquares())
+        // Moving left
+        if (direction == -1 || direction == -9 || direction == 7)
         {
-            // Iterate through each of the four directions: North, South, East, West
-            foreach (int direction in new int[] { 8, -8, 1, -1 })
+            // If toSq is on the H-file after a left move, it's invalid
+            if ((toSq % 8) == 7)
+                return true;
+        }
+        // Moving right
+        if (direction == 1 || direction == 9 || direction == -7)
+        {
+            // If toSq is on the A-file after a right move, it's invalid
+            if ((toSq % 8) == 0)
+                return true;
+        }
+        return false;
+    }
+
+    // Get sliding pieces based on piece type
+    private Bitboard GetSlidingPieces(Board board, Color color, PieceType pieceType)
+    {
+        Bitboard sliding = new Bitboard();
+        switch (pieceType)
+        {
+            case PieceType.Bishop:
+                sliding = new Bitboard(color == Color.White ? board.WhiteBishops.Bits : board.BlackBishops.Bits);
+                break;
+            case PieceType.Rook:
+                sliding = new Bitboard(color == Color.White ? board.WhiteRooks.Bits : board.BlackRooks.Bits);
+                break;
+            case PieceType.Queen:
+                sliding = new Bitboard(color == Color.White ? board.WhiteQueens.Bits : board.BlackQueens.Bits);
+                break;
+            default:
+                sliding = new Bitboard();
+                break;
+        }
+        return sliding;
+    }
+
+    // Check if a square is attacked by the opponent
+    private bool IsSquareAttacked(Board board, Square square, Color attackerColor)
+    {
+        // Implementing this function is essential for move legality (e.g., castling)
+        // For simplicity, here's a basic implementation. For full correctness, it needs to cover all attack types.
+
+        int sq = (int)square;
+
+        // Pawn attacks
+        Bitboard enemyPawns = attackerColor == Color.White ? board.WhitePawns : board.BlackPawns;
+        int[] pawnAttackOffsets = attackerColor == Color.White ? new int[] { -9, -7 } : new int[] { 7, 9 };
+        foreach (int offset in pawnAttackOffsets)
+        {
+            int fromSq = sq + offset;
+            if (fromSq >= 0 && fromSq < 64)
             {
-                int currentSq = (int)from;
-
-                while (true)
-                {
-                    currentSq += direction;
-
-                    // Check if the new square is within the board boundaries
-                    if (currentSq < 0 || currentSq >= 64)
-                        break;
-
-                    if (direction == 1 && currentSq % 8 == 0)
-                        break; // Moving East from H-file wraps to A-file
-                    if (direction == -1 && (currentSq + 1) % 8 == 0)
-                        break; // Moving West from A-file wraps to H-file
-
-                    Square to = (Square)currentSq;
-
-                    if (ownPieces.IsSet(to))
-                    {
-                        // Blocked by own piece; cannot move further in this direction
-                        break;
-                    }
-
-                    bool isCapture = enemyPieces.IsSet(to);
-                    moves.Add(new Move
-                    {
-                        From = from,
-                        To = to,
-                        IsCapture = isCapture
-                    });
-
-                    if (isCapture)
-                    {
-                        // Cannot move beyond a capture
-                        break;
-                    }
-                }
+                Square from = (Square)fromSq;
+                if (enemyPawns.IsSet(from))
+                    return true;
             }
         }
 
-        return moves;
-    }
-
-    public List<Move> GenerateQueenMoves(Board board, Color color)
-    {
-        List<Move> moves = new List<Move>();
-
-        // Queens combine the movement of rooks and bishops
-        moves.AddRange(GenerateRookMoves(board, color));
-        moves.AddRange(GenerateBishopMoves(board, color));
-
-        return moves;
-    }
-
-    // Generate all legal moves for a given color
-    public List<Move> GenerateAllMoves(Board board, Color color)
-    {
-        List<Move> moves = new List<Move>();
-        moves.AddRange(GenerateKnightMoves(board, color));
-        moves.AddRange(GenerateKingMoves(board, color));
-        moves.AddRange(GeneratePawnMoves(board, color));
-        moves.AddRange(GenerateBishopMoves(board, color));
-        moves.AddRange(GenerateRookMoves(board, color));
-        moves.AddRange(GenerateQueenMoves(board, color));
-        // TODO: Add castling and en passant moves
-        return moves;
-    }
-
-    // Helper method to convert bitboard to squares
-    private IEnumerable<Square> SquareFromBits(ulong bits)
-    {
-        Bitboard bb = new Bitboard(bits);
-        foreach (Square sq in bb.GetSquares())
+        // Knight attacks
+        Bitboard enemyKnights = attackerColor == Color.White ? board.WhiteKnights : board.BlackKnights;
+        foreach (Square from in enemyKnights.GetSquares())
         {
-            yield return sq;
+            int fromSq = (int)from;
+            foreach (int offset in KnightMoves)
+            {
+                int toSq = fromSq + offset;
+                if (toSq == sq)
+                    return true;
+            }
         }
+
+        // Bishop and Queen (diagonals)
+        Bitboard enemyBishops = attackerColor == Color.White ? board.WhiteBishops : board.BlackBishops;
+        Bitboard enemyQueens = attackerColor == Color.White ? board.WhiteQueens : board.BlackQueens;
+        foreach (Square from in enemyBishops.GetSquares())
+        {
+            if (IsSlidingAttack(board, from, square, BishopDirections))
+                return true;
+        }
+        foreach (Square from in enemyQueens.GetSquares())
+        {
+            if (IsSlidingAttack(board, from, square, BishopDirections) ||
+                IsSlidingAttack(board, from, square, RookDirections))
+                return true;
+        }
+
+        // Rook and Queen (straight lines)
+        Bitboard enemyRooks = attackerColor == Color.White ? board.WhiteRooks : board.BlackRooks;
+        foreach (Square from in enemyRooks.GetSquares())
+        {
+            if (IsSlidingAttack(board, from, square, RookDirections))
+                return true;
+        }
+        foreach (Square from in enemyQueens.GetSquares())
+        {
+            if (IsSlidingAttack(board, from, square, RookDirections) ||
+                IsSlidingAttack(board, from, square, BishopDirections))
+                return true;
+        }
+
+        // King attacks
+        Bitboard enemyKings = attackerColor == Color.White ? board.WhiteKing : board.BlackKing;
+        foreach (Square from in enemyKings.GetSquares())
+        {
+            int fromSq = (int)from;
+            foreach (int offset in KingMoves)
+            {
+                int toSq = fromSq + offset;
+                if (toSq == sq)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Helper to check sliding attacks
+    private bool IsSlidingAttack(Board board, Square from, Square target, int[] directions)
+    {
+        int fromSq = (int)from;
+        int targetSq = (int)target;
+        foreach (int direction in directions)
+        {
+            int toSq = fromSq + direction;
+            while (toSq >= 0 && toSq < 64)
+            {
+                if (toSq == targetSq)
+                    return true;
+                if (board.AllPieces.IsSet((Square)toSq))
+                    break;
+                toSq += direction;
+            }
+        }
+        return false;
     }
 }

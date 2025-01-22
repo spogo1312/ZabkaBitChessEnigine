@@ -44,14 +44,16 @@ public class Bitboard
     // Iterate through all set bits
     public IEnumerable<Square> GetSquares()
     {
-        ulong bb = Bits;
-        while (bb != 0)
+        ulong bits = Bits;
+        while (bits != 0)
         {
-            int lsb = BitOperations.TrailingZeroCount(bb);
-            yield return (Square)lsb;
-            bb &= bb - 1; // Remove the least significant bit set
+            ulong lsb = bits & (~bits + 1);
+            int square = BitOperations.TrailingZeroCount(lsb); // Corrected
+            yield return (Square)square;
+            bits ^= lsb;
         }
     }
+
 
     // Print the bitboard (for debugging)
     public void Print()
