@@ -46,6 +46,11 @@ public class UCIHandler
             {
                 break;
             }
+            else if (input.StartsWith("display"))
+            {
+                // Handle the display command
+                board.Display();
+            }
             // Handle other UCI commands as needed
         }
     }
