@@ -148,7 +148,8 @@ public class UCIHandler
             ulong nodes = engine.Perft(board, depth - 1);
             board.UnmakeMove();
 
-            Console.WriteLine($"{move.ToString()} {nodes}");
+            string uciMove = MoveToUCI(move);
+            Console.WriteLine($"{uciMove}: {nodes}");
             totalNodes += nodes;
         }
 
@@ -169,7 +170,7 @@ public class UCIHandler
                 foreach (var moveStr in moves)
                 {
                     Move move = ParseMove(moveStr);
-                    engine.MakeMove(board, move);
+                    board.MakeMove(move); // Changed from engine.MakeMove to board.MakeMove
                 }
             }
         }
@@ -199,7 +200,7 @@ public class UCIHandler
                 foreach (var moveStr in moves)
                 {
                     Move move = ParseMove(moveStr);
-                    engine.MakeMove(board, move);
+                    board.MakeMove(move); // Changed from engine.MakeMove to board.MakeMove
                 }
             }
         }

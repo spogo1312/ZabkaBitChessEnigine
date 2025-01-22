@@ -90,4 +90,48 @@ public class Engine
 
         return nodes;
     }
+    public void Divide(Board board, int depth)
+    {
+        if (depth < 1)
+        {
+            Console.WriteLine("Depth must be at least 1.");
+            return;
+        }
+
+        List<Move> moves = moveGenerator.GenerateAllMoves(board, board.SideToMove);
+        ulong totalNodes = 0;
+
+        foreach (var move in moves)
+        {
+            board.MakeMove(move);
+            ulong nodes = Perft(board, depth - 1);
+            board.UnmakeMove();
+
+            string uciMove = MoveToUCI(move);
+            Console.WriteLine($"{uciMove}: {nodes}");
+            totalNodes += nodes;
+        }
+
+        Console.WriteLine($"Total nodes: {totalNodes}");
+    }
+
+    private string MoveToUCI(Move move)
+    {
+        // Convert a Move object to UCI string format
+        string uciMove = $"{SquareToString(move.From)}{SquareToString(move.To)}";
+        if (move.Promotion != PieceType.None)
+        {
+            uciMove += move.Promotion.ToString().ToLower()[0];
+        }
+        return uciMove;
+    }
+
+    private string SquareToString(Square square)
+    {
+        int sq = (int)square;
+        char file = (char)('a' + (sq % 8));
+        char rank = (char)('1' + (sq / 8));
+        return $"{file}{rank}";
+    }
+
 }

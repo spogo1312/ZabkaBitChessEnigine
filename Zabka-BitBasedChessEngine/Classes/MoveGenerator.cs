@@ -33,12 +33,11 @@ public class MoveGenerator
 
         // Generate king moves
         moves.AddRange(GenerateKingMoves(board, color));
-        // Within MoveGenerator.GenerateAllMoves
-        Console.WriteLine($"Generating moves for {color}:");
-        foreach (var move in moves)
-        {
-            Console.WriteLine($"Move: {move.From} to {move.To}, Capture: {move.IsCapture}, Promotion: {move.Promotion}, Castling: {move.IsCastling}, EnPassant: {move.IsEnPassant}");
-        }
+        //Console.WriteLine($"Generating moves for {color}:");
+        //foreach (var move in moves)
+        //{
+        //    Console.WriteLine($"Move: {move.From} to {move.To}, Capture: {move.IsCapture}, Promotion: {move.Promotion}, Castling: {move.IsCastling}, EnPassant: {move.IsEnPassant}");
+        //}
 
         return moves;
     }
